@@ -1,58 +1,39 @@
 import { describe, expect, it } from 'vitest'
-import { POST } from '@/app/api/digest/route'
-import { GET } from '@/app/api/health/route'
-import { MAX_BODY_BYTES } from '@/digest/contract'
-import { example } from '@/digest/example'
+import { caseInput, messageInput } from '@/digest/contract'
+import { readJson } from '@/server/http'
+import { operationInput, readCaseFields } from '@/server/forms'
+import { checkCase } from '@/server/store'
 
-function request(body: string, headers = { 'Content-Type': 'application/json' }) {
-  return new Request('http://localhost/api/digest', { method: 'POST', headers, body })
+const now = '2026-11-23T10:00:00+03:00'
+function request(body: string, contentType = 'application/json') {
+  return new Request('http://localhost/api/cases', { method: 'POST', body, headers: { 'Content-Type': contentType } })
 }
 
-describe('API сводки', () => {
-  it('возвращает серверный результат с приоритетами и отключает кеширование', async () => {
-    const response = await POST(request(JSON.stringify(example)))
-    expect(response.status).toBe(200)
-    expect(response.headers.get('Cache-Control')).toBe('no-store')
-    const { digest } = await response.json()
-    expect(digest.items).toHaveLength(4)
-    expect(digest.items[0]).toMatchObject({ id: 'П-08', priority: 'urgent' })
+describe('граница ввода', () => {
+  it('различает формат, повреждённый JSON и большой запрос', async () => {
+    await expect(readJson(request('{}', 'text/plain'))).rejects.toMatchObject({ status: 415 })
+    await expect(readJson(request('{'))).rejects.toMatchObject({ status: 400 })
+    await expect(readJson(request('а'.repeat(9000)))).rejects.toMatchObject({ status: 413 })
+    await expect(readJson(request(JSON.stringify({ message: 'а'.repeat(2000) })))).resolves.toHaveProperty('message')
   })
 
-  it('указывает поле повторяющегося ID с учётом регистра и пробелов', async () => {
-    const response = await POST(request(JSON.stringify({
-      ...example,
-      cases: [example.cases[0], { ...example.cases[1], id: ' с-17 ' }],
-    })))
-    expect(response.status).toBe(422)
-    expect(await response.json()).toMatchObject({ issues: [{ path: 'cases.1.id' }] })
+  it('запрещает клиенту выбирать пространство или добавлять неизвестные поля', () => {
+    const value = { id: 'С-1', kind: 'onboarding', crm: { startDate: '2026-11-22', documents: 'awaiting' } }
+    expect(caseInput.safeParse({ ...value, workspace: 'support' }).success).toBe(false)
+    expect(caseInput.safeParse({ ...value, crm: { ...value.crm, foo: 'bar' } }).success).toBe(false)
+    expect(operationInput.safeParse({ action: 'archive', version: 0 }).success).toBe(false)
   })
 
-  it('требует срок открытой доставки и отклоняет приёмку из будущего', async () => {
-    const response = await POST(request(JSON.stringify({ ...example, cases: [
-      { ...example.cases[2], crm: { status: 'in_transit' } },
-      { ...example.cases[3], crm: { status: 'accepted', acceptedAt: '2026-11-23T10:01:00+03:00' } },
-    ] })))
-    expect(response.status).toBe(422)
-    expect(await response.json()).toMatchObject({ issues: [
-      { path: 'cases.0.crm.dueAt' }, { path: 'cases.1.crm.acceptedAt' },
-    ] })
+  it('требует срок открытой доставки и отклоняет приёмку из будущего', () => {
+    expect(() => checkCase({ id: 'П-1', kind: 'delivery', crm: { status: 'planned' } }, now))
+      .toThrow('Проверьте поля доставки')
+    expect(() => checkCase({ id: 'П-1', kind: 'delivery', crm: { status: 'accepted', acceptedAt: '2026-11-23T10:01:00+03:00' } }, now))
+      .toThrow('Проверьте время приёмки')
   })
 
-  it('отклоняет даты без часового пояса', async () => {
-    const response = await POST(request(JSON.stringify({ ...example, asOf: '2026-11-23T10:00:00' })))
-    expect(response.status).toBe(422)
-    expect(await response.json()).toMatchObject({ issues: [{ path: 'asOf' }] })
-  })
-
-  it('различает неверный JSON, неизвестное содержимое и слишком большое тело без Content-Length', async () => {
-    expect((await POST(request('{broken'))).status).toBe(400)
-    expect((await POST(request('{}', { 'Content-Type': 'text/plain' }))).status).toBe(415)
-    expect((await POST(request('а'.repeat(MAX_BODY_BYTES / 2 + 1)))).status).toBe(413)
-  })
-
-  it('проверяет готовность приложения через health endpoint', async () => {
-    const response = GET()
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ status: 'ok' })
+  it('одинаково обрабатывает корректные даты из формы и JSON', () => {
+    const value = readCaseFields({ id: 'П-1', kind: 'delivery', status: 'planned', dueAt: '2026-11-23T10:00' })
+    expect(value.crm).toEqual({ status: 'planned', dueAt: '2026-11-23T07:00:00.000Z', acceptedAt: undefined })
+    expect(messageInput.safeParse({ role: 'courier', text: 'Приеду', conflict: false, at: '2026-11-23T10:00' }).success).toBe(false)
   })
 })

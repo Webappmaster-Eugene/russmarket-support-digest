@@ -4,6 +4,15 @@ const config: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,
   devIndicators: false,
+  experimental: { serverActions: { bodySizeLimit: '32kb' } },
+  async redirects() {
+    return [{
+      source: '/:path*',
+      has: [{ type: 'host', value: 'russmarket-demo.webappmaster.ru' }],
+      destination: 'https://support.nadtocheev.ru/:path*',
+      permanent: false,
+    }]
+  },
   async headers() {
     return [{
       source: '/:path*',

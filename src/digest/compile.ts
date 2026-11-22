@@ -1,4 +1,4 @@
-import type { Digest, DigestItem, DigestRequest, Priority, SupportCase } from '@/digest/contract'
+import type { ChatMessage, Digest, DigestItem, DigestRequest, Priority, SupportCase } from '@/digest/contract'
 import { readCourierEstimate } from '@/digest/eta'
 import { formatDate, formatTimestamp, fromMoscowInput, toMoscowInput } from '@/digest/time'
 
@@ -62,7 +62,15 @@ function offboarding(crm: Extract<SupportCase, { kind: 'offboarding' }>['crm'], 
   }
 }
 
-function delivery(item: Extract<SupportCase, { kind: 'delivery' }>, asOf: string, day: string): Decision {
+export function isOpenConflict(item: SupportCase, message: ChatMessage) {
+  if (message.resolution) return false
+  if (message.conflict) return true
+  return item.kind === 'delivery' && item.crm.status === 'accepted' &&
+    message.role === 'recipient' && Date.parse(message.at) >= Date.parse(item.crm.acceptedAt ?? '') &&
+    /(?:не\s+(?:получили|приняли|поступили|доставили)|при[её]мка\s+не\s+состоялась)/iu.test(message.text)
+}
+
+function delivery(item: Extract<SupportCase, { kind: 'delivery' }>, asOf: string): Decision {
   const { status, dueAt, acceptedAt } = item.crm
   const facts = [`Статус «${deliveryStatus[status]}».`]
   if (dueAt) facts.push(`Срок доставки — ${formatTimestamp(dueAt)}.`)
@@ -86,7 +94,7 @@ function delivery(item: Extract<SupportCase, { kind: 'delivery' }>, asOf: string
   const deadline = Date.parse(dueAt)
   const estimate = readCourierEstimate(item.chat)
   const estimatedAt = estimate.kind === 'estimate'
-    ? Date.parse(fromMoscowInput(`${day}T${estimate.time}`))
+    ? Date.parse(fromMoscowInput(`${toMoscowInput(estimate.at).slice(0, 10)}T${estimate.time}`))
     : undefined
   const lateEstimate = estimatedAt !== undefined && estimatedAt > deadline
   const pastEstimate = estimatedAt !== undefined && estimatedAt < Date.parse(asOf)
@@ -138,10 +146,18 @@ function delivery(item: Extract<SupportCase, { kind: 'delivery' }>, asOf: string
 export function compileDigest({ asOf, cases }: DigestRequest): Digest {
   const day = toMoscowInput(asOf).slice(0, 10)
   const decisions = cases.map((item) => {
+    const chat = item.chat.filter(({ at }) => Date.parse(at) <= Date.parse(asOf))
     const decision = item.kind === 'onboarding' ? onboarding(item.crm, day)
       : item.kind === 'offboarding' ? offboarding(item.crm, day)
-        : delivery(item, asOf, day)
-    return { ...decision, id: item.id, kind: item.kind, chat: item.chat }
+        : delivery({ ...item, chat }, asOf)
+    const hasConflict = chat.some((message) => isOpenConflict(item, message))
+    if (hasConflict) {
+      decision.priority = decision.priority === 'urgent' ? 'urgent' : 'today'
+      decision.reason = 'Переписка расходится с данными CRM.'
+      decision.verify = 'Уточнить факты у ответственного и сверить карточку CRM.'
+      decision.action = 'При необходимости обновить CRM и сохранить пояснение к расхождению.'
+    }
+    return { ...decision, id: item.id, key: item.key, kind: item.kind, chat, hasConflict }
   })
 
   decisions.sort((a, b) => {

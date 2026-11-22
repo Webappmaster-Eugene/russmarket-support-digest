@@ -3,7 +3,7 @@ import next from '@next/eslint-plugin-next'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['.next/**', '.pnpm-store/**', 'coverage/**', 'next-env.d.ts', 'playwright-report/**', 'test-results/**'] },
+  { ignores: ['.next/**', '.build/**', '.pnpm-store/**', 'coverage/**', 'next-env.d.ts', 'playwright-report/**', 'test-results/**'] },
   js.configs.recommended,
   tseslint.configs.recommended,
   {

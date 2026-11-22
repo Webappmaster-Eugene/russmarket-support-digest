@@ -23,15 +23,17 @@ function estimateFromText(text: string): Estimate | undefined {
 }
 
 export function readCourierEstimate(chat: ChatMessage[]) {
-  const fromCouriers = chat.filter(({ role }) => role === 'courier')
+  const courierMessages = chat.filter(({ role }) => role === 'courier')
+  const latest = courierMessages.reduce((latest, { at }) => Math.max(latest, Date.parse(at)), -Infinity)
+  const fromCouriers = courierMessages.filter(({ at }) => Date.parse(at) === latest)
   if (fromCouriers.length === 0) return { kind: 'absent' } as const
 
   const first = fromCouriers[0]
   const estimate = first && estimateFromText(first.text)
-  if (estimate && fromCouriers.every(({ text }) => {
+  if (first && estimate && fromCouriers.every(({ text }) => {
     const next = estimateFromText(text)
     return next?.time === estimate.time && next.earliest === estimate.earliest
-  })) return { kind: 'estimate', ...estimate } as const
+  })) return { kind: 'estimate', at: first.at, ...estimate } as const
 
   return { kind: 'unclear' } as const
 }

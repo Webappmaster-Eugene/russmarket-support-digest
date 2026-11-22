@@ -1,27 +1,18 @@
 import { z } from 'zod'
-import { chatRoles, MAX_CASES, MAX_MESSAGE_LENGTH, MAX_MESSAGES } from '@/digest/input-spec'
 
-export const MAX_BODY_BYTES = 128 * 1024
+export const chatRoles = ['employee', 'manager', 'courier', 'recipient', 'other'] as const
+export const priorities = ['urgent', 'today', 'upcoming', 'none'] as const
+export const caseKinds = ['onboarding', 'offboarding', 'delivery'] as const
 
-const timestamp = z.iso.datetime({
-  offset: true,
-  error: 'Укажите дату, время и смещение часового пояса.',
-}).refine((value) => Number.isFinite(Date.parse(value)), 'Укажите корректную метку времени.')
+export const timestamp = z.iso.datetime({ offset: true, error: 'Укажите дату и время.' })
+  .refine((value) => Number.isFinite(Date.parse(value)), 'Укажите корректную дату и время.')
 const date = z.iso.date({ error: 'Укажите дату.' })
+const reference = z.string().trim().min(1, 'Введите ID случая.').max(32, 'До 32 символов.')
+  .refine((value) => !/\p{Cc}/u.test(value), 'Удалите управляющие символы из ID.')
 
-const chatMessage = z.strictObject({
-  role: z.enum(chatRoles, { error: 'Выберите автора сообщения.' }),
-  text: z.string().trim().min(1, 'Введите сообщение.').max(MAX_MESSAGE_LENGTH, 'До 500 символов.'),
-})
-
-const caseFields = {
-  id: z.string().trim().min(1, 'Введите ID случая.').max(32, 'До 32 символов.'),
-  chat: z.array(chatMessage).max(MAX_MESSAGES, 'До пяти сообщений.'),
-}
-
-const caseSchema = z.discriminatedUnion('kind', [
+export const caseInput = z.discriminatedUnion('kind', [
   z.strictObject({
-    ...caseFields,
+    id: reference,
     kind: z.literal('onboarding'),
     crm: z.strictObject({
       startDate: date,
@@ -29,15 +20,15 @@ const caseSchema = z.discriminatedUnion('kind', [
     }),
   }),
   z.strictObject({
-    ...caseFields,
+    id: reference,
     kind: z.literal('offboarding'),
     crm: z.strictObject({
       lastDay: date,
-      managerConfirmed: z.boolean({ error: 'Укажите, есть ли подтверждение.' }),
+      managerConfirmed: z.boolean({ error: 'Укажите, есть ли согласование.' }),
     }),
   }),
   z.strictObject({
-    ...caseFields,
+    id: reference,
     kind: z.literal('delivery'),
     crm: z.strictObject({
       status: z.enum(['planned', 'in_transit', 'accepted'], { error: 'Выберите статус доставки.' }),
@@ -47,64 +38,37 @@ const caseSchema = z.discriminatedUnion('kind', [
   }),
 ])
 
-export const digestRequestSchema = z.strictObject({
-  asOf: timestamp,
-  cases: z.array(caseSchema)
-    .min(1, 'Добавьте хотя бы один случай.')
-    .max(MAX_CASES, 'До 30 случаев.'),
-}).superRefine(({ asOf, cases }, ctx) => {
-  const ids = new Set<string>()
-  for (const [index, item] of cases.entries()) {
-    const id = item.id.toLocaleLowerCase('ru-RU')
-    if (ids.has(id)) {
-      ctx.addIssue({ code: 'custom', path: ['cases', index, 'id'], message: 'Этот ID уже используется.' })
-    }
-    ids.add(id)
-
-    if (item.kind !== 'delivery') continue
-    const { status, dueAt, acceptedAt } = item.crm
-    const crmPath = ['cases', index, 'crm']
-    if (status === 'accepted') {
-      if (!acceptedAt || Date.parse(acceptedAt) > Date.parse(asOf)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: [...crmPath, 'acceptedAt'],
-          message: 'Укажите время приёмки не позже времени сводки.',
-        })
-      }
-    } else {
-      if (!dueAt) {
-        ctx.addIssue({
-          code: 'custom', path: [...crmPath, 'dueAt'], message: 'Укажите срок открытой доставки.',
-        })
-      }
-      if (acceptedAt) {
-        ctx.addIssue({
-          code: 'custom', path: [...crmPath, 'acceptedAt'], message: 'Время приёмки доступно для статуса «Принято».',
-        })
-      }
-    }
-  }
+export const messageInput = z.strictObject({
+  role: z.enum(chatRoles, { error: 'Выберите автора сообщения.' }),
+  text: z.string().trim().min(1, 'Введите сообщение.').max(2000, 'До 2000 символов.')
+    .refine((value) => !value.includes('\u0000'), 'Удалите недопустимый символ из сообщения.'),
+  at: timestamp,
+  conflict: z.boolean(),
 })
 
-export type DigestRequest = z.infer<typeof digestRequestSchema>
-export type SupportCase = DigestRequest['cases'][number]
-export type CaseKind = SupportCase['kind']
-export type ChatMessage = z.infer<typeof chatMessage>
-export type Priority = 'urgent' | 'today' | 'upcoming' | 'none'
+export const versionInput = z.number().int().positive()
+export const resolutionInput = z.string().trim().min(1, 'Опишите, что удалось выяснить.').max(500, 'До 500 символов.')
+
+export type CaseInput = z.infer<typeof caseInput>
+export type CaseKind = CaseInput['kind']
+export type ChatMessage = z.infer<typeof messageInput> & { key?: string; resolution?: string }
+export type SupportCase = CaseInput & { chat: ChatMessage[]; key?: string }
+export type Priority = typeof priorities[number]
 
 export type DigestItem = {
   id: string
+  key?: string
   kind: CaseKind
   priority: Priority
   reason: string
   crm: string[]
   chat: ChatMessage[]
   chatNote?: string
+  hasConflict?: boolean
   verify: string
   action: string
 }
 
+export type DigestRequest = { asOf: string; cases: SupportCase[] }
 export type Digest = { asOf: string; items: DigestItem[] }
 export type FieldIssue = { path: string; message: string }
-export type DigestResponse = { digest: Digest } | { error: string; issues?: FieldIssue[] }
