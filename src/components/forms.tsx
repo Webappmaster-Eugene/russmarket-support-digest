@@ -13,8 +13,8 @@ function Notice({ state }: { state: FormState }) {
   return state.error ? <p className="error-panel" role="alert">{state.error}</p> : null
 }
 
-function Submit({ pending, children }: { pending: boolean; children: ReactNode }) {
-  return <button className="button primary" disabled={pending}>{pending ? 'Сохраняем…' : children}</button>
+function Submit({ pending, children, pendingLabel = 'Сохраняем…' }: { pending: boolean; children: ReactNode; pendingLabel?: string }) {
+  return <button className="button primary" disabled={pending}>{pending ? pendingLabel : children}</button>
 }
 
 export function LoginForm() {
@@ -27,7 +27,7 @@ export function LoginForm() {
     <InputField label="Пароль" issue={issue(state, 'password')}>
       {(props) => <input {...props} name="password" type="password" required maxLength={128} autoComplete="current-password" />}
     </InputField>
-    <Submit pending={pending}>Войти</Submit>
+    <Submit pending={pending} pendingLabel="Входим…">Войти</Submit>
   </form>
 }
 

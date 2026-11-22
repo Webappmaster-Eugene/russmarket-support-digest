@@ -40,7 +40,7 @@ SUPPORT_INTEGRATION_URL="postgresql://desk:$qa_db@127.0.0.1:55448/support_desk" 
 qa_app=$(qa_compose ps -q app)
 docker run --rm --init --ipc=host --network "container:$qa_app" \
   -e SUPPORT_E2E_PASSWORD="$qa_support" -e REVIEWER_E2E_PASSWORD="$qa_reviewer" \
-  -e RUSSMARKET_E2E_URL=http://127.0.0.1:3000 -v "$PWD:/work" -w /work \
+  -e SUPPORT_E2E_URL=http://127.0.0.1:3000 -v "$PWD:/work" -w /work \
   mcr.microsoft.com/playwright:v1.63.0-noble node node_modules/@playwright/test/cli.js test
 
 metric="SELECT (SELECT count(*) FROM cases), (SELECT count(*) FROM messages), (SELECT count(*) FROM snapshots)"
