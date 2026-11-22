@@ -19,7 +19,9 @@ const longDateTime = new Intl.DateTimeFormat('ru-RU', {
 })
 
 export function toMoscowInput(timestamp: string) {
-  return moscowDateTime.format(new Date(timestamp)).replace(' ', 'T')
+  return moscowDateTime.format(new Date(timestamp))
+    .replace(/^(\d{1,3})(?=-)/u, (year) => year.padStart(4, '0'))
+    .replace(' ', 'T')
 }
 
 export function reportTime(timestamp: string) {
@@ -36,11 +38,13 @@ export function formatTimestamp(timestamp: string) {
 }
 
 export function fromMoscowInput(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u.test(value)) return ''
   const asUtc = Date.parse(`${value}:00Z`)
   if (!Number.isFinite(asUtc)) return ''
 
   const localAtUtc = toMoscowInput(new Date(asUtc).toISOString())
   const offset = Date.parse(`${localAtUtc}:00Z`) - asUtc
+  if (!Number.isFinite(offset)) return ''
   const timestamp = new Date(asUtc - offset).toISOString()
   return toMoscowInput(timestamp) === value ? timestamp : ''
 }
