@@ -1,17 +1,14 @@
 import { z } from 'zod'
+import { chatRoles, MAX_CASES, MAX_MESSAGE_LENGTH, MAX_MESSAGES } from '@/digest/input-spec'
 
-export const MAX_CASES = 30
-export const MAX_MESSAGES = 5
-export const MAX_MESSAGE_LENGTH = 500
 export const MAX_BODY_BYTES = 128 * 1024
 
 const timestamp = z.iso.datetime({
   offset: true,
   error: 'Укажите дату, время и смещение часового пояса.',
-})
+}).refine((value) => Number.isFinite(Date.parse(value)), 'Укажите корректную метку времени.')
 const date = z.iso.date({ error: 'Укажите дату.' })
 
-export const chatRoles = ['employee', 'manager', 'courier', 'recipient', 'other'] as const
 const chatMessage = z.strictObject({
   role: z.enum(chatRoles, { error: 'Выберите автора сообщения.' }),
   text: z.string().trim().min(1, 'Введите сообщение.').max(MAX_MESSAGE_LENGTH, 'До 500 символов.'),

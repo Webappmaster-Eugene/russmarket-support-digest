@@ -36,5 +36,11 @@ export function formatTimestamp(timestamp: string) {
 }
 
 export function fromMoscowInput(value: string) {
-  return value ? `${value}:00+03:00` : ''
+  const asUtc = Date.parse(`${value}:00Z`)
+  if (!Number.isFinite(asUtc)) return ''
+
+  const localAtUtc = toMoscowInput(new Date(asUtc).toISOString())
+  const offset = Date.parse(`${localAtUtc}:00Z`) - asUtc
+  const timestamp = new Date(asUtc - offset).toISOString()
+  return toMoscowInput(timestamp) === value ? timestamp : ''
 }
