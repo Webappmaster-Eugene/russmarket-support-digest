@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    init: true
+    restart: unless-stopped
+    expose:
+      - '3000'
+    mem_limit: 384m
+    cpus: 1.0
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
