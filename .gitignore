@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.pnpm-store/
+*.tsbuildinfo
+next-env.d.ts
+coverage/
+playwright-report/
+test-results/
+.env*
+.DS_Store
