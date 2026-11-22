@@ -1,4 +1,4 @@
-# Сводка поддержки Руссмаркет
+# Сводка поддержки
 
 Демо ежедневной сводки по CRM и рабочим чатам. На главной странице открывается
 очередь из четырёх случаев. В разделе «Данные» можно изменить пример, добавить
@@ -72,8 +72,8 @@ pnpm test:e2e
 Production-образ запускается тем же сервером для страницы и API.
 
 ```sh
-docker build -t russmarket-support-digest:local .
-docker run --rm -p 127.0.0.1:3000:3000 russmarket-support-digest:local
+docker build -t support-digest:local .
+docker run --rm -p 127.0.0.1:3000:3000 support-digest:local
 ```
 
 В `compose.yaml` подготовлен сервис `app` для выката за прокси. Docker
@@ -95,3 +95,5 @@ docker run --rm -p 127.0.0.1:3000:3000 russmarket-support-digest:local
 
 ИИ использовался при проектировании, написании кода, тестов и документации.
 Сводка в приложении рассчитывается по описанным правилам.
+
+Шрифт Onest используется по [SIL Open Font License](src/app/fonts/OFL.txt).

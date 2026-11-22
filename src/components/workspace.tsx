@@ -86,7 +86,7 @@ export function Workspace({ initialDigest }: { initialDigest: Digest }) {
         <div className="masthead-inner">
           <div className="wordmark">
             <span className="mark" aria-hidden="true"><i /><i /><i /></span>
-            <span>Руссмаркет<span className="wordmark-unit"> / Поддержка</span></span>
+            <span>Центр поддержки</span>
           </div>
           <nav aria-label="Разделы">
             <button type="button" ref={summaryTab} aria-current={view === 'digest' ? 'page' : undefined}

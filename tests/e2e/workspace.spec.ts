@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test'
 
 test('показывает четыре случая в порядке действий и раскрывает источники', async ({ page }) => {
   await page.goto('/')
+  await expect(page).toHaveTitle('Сводка поддержки')
+  await expect(page.getByRole('banner')).toContainText('Центр поддержки')
 
   const queue = page.getByRole('region', { name: 'Очередь случаев' })
   const buttons = queue.getByRole('button')

@@ -29,8 +29,8 @@ function CaseDetail({ item }: { item: DigestItem }) {
         <span className="case-id">{item.id}</span>
         <Status priority={item.priority} />
         <h2>{caseLabels[item.kind]}</h2>
-        <p>{item.reason}</p>
       </header>
+      <p className={`case-summary tone-${item.priority}`}>{item.reason}</p>
       <div className="sources">
         <section className="source source-crm" aria-label="Подтверждено в CRM">
           <h3>Запись CRM</h3>

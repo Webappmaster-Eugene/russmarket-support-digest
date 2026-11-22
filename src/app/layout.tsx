@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import './styles.css'
 
 export const metadata: Metadata = {
-  title: 'Сводка поддержки | Руссмаркет',
+  title: 'Сводка поддержки',
   description: 'Ежедневная очередь действий по оформлению, увольнению и поставке карт.',
   robots: { index: false, follow: false },
 }
