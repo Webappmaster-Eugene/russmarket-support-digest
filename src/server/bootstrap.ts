@@ -23,41 +23,41 @@ async function setup() {
     }
 
     const accounts = [
-      { login: 'reviewer', workspace: 'review', hash: process.env.REVIEWER_PASSWORD_HASH },
-      { login: 'support', workspace: 'support', hash: process.env.SUPPORT_PASSWORD_HASH },
+      { login: 'reviewer', hash: process.env.REVIEWER_PASSWORD_HASH },
+      { login: 'support', hash: process.env.SUPPORT_PASSWORD_HASH },
     ]
-    for (const { login, workspace, hash } of accounts) {
+    for (const { login, hash } of accounts) {
       const existing = await db.query('SELECT login FROM accounts WHERE login = $1', [login])
       if (!hash && existing.rowCount) continue
       if (!hash || !validPasswordHash(hash)) throw new Error(`Supply a valid password hash for ${login}`)
       const changed = await db.query(`
-        INSERT INTO accounts(login, workspace_id, password_hash) VALUES ($1, $2, $3)
+        INSERT INTO accounts(login, workspace_id, password_hash) VALUES ($1, 'support', $2)
         ON CONFLICT (login) DO UPDATE SET password_hash = EXCLUDED.password_hash
         WHERE accounts.password_hash <> EXCLUDED.password_hash
-      `, [login, workspace, hash])
+      `, [login, hash])
       if (changed.rowCount) await db.query('DELETE FROM sessions WHERE login = $1', [login])
     }
 
     const snapshotKey = '00000000-0000-4000-8000-000000000001'
-    const seeded = await db.query("SELECT 1 FROM snapshots WHERE workspace_id = 'review' AND id = $1", [snapshotKey])
+    const seeded = await db.query("SELECT 1 FROM snapshots WHERE workspace_id = 'support' AND id = $1", [snapshotKey])
     if (seeded.rowCount) return
     const cases: SupportCase[] = []
     for (const item of example.cases) {
       const result = await db.query<{ id: string }>(`
         INSERT INTO cases(workspace_id, reference, normalized_reference, kind, crm)
-        VALUES ('review', $1, $2, $3, $4) RETURNING id
+        VALUES ('support', $1, $2, $3, $4) RETURNING id
       `, [item.id, normalizeReference(item.id), item.kind, item.crm])
       const key = result.rows[0]?.id
       if (!key) throw new Error('Could not create example case')
       for (const message of item.chat) {
         await db.query(`
           INSERT INTO messages(workspace_id, case_id, role, body, sent_at)
-          VALUES ('review', $1, $2, $3, $4)
+          VALUES ('support', $1, $2, $3, $4)
         `, [key, message.role, message.text, message.at])
       }
       cases.push({ ...item, key })
     }
-    await db.query("INSERT INTO snapshots(id, workspace_id, as_of, digest) VALUES ($1, 'review', $2, $3)",
+    await db.query("INSERT INTO snapshots(id, workspace_id, as_of, digest) VALUES ($1, 'support', $2, $3)",
       [snapshotKey, example.asOf, compileDigest({ asOf: example.asOf, cases })])
   })
 }
@@ -87,7 +87,7 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  const reason = error instanceof Error && /^(Supply a valid|Use a password|Password is too long|Missing SQL)/u.test(error.message)
+  const reason = error instanceof Error && /^(Supply a valid|Use a password|Password is too long|Missing SQL|Cannot merge workspaces)/u.test(error.message)
     ? error.message : 'Support desk database setup failed'
   process.stderr.write(`${reason}\n`)
   process.exitCode = 1

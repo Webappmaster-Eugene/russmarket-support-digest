@@ -5,7 +5,7 @@ import { database } from '@/server/db'
 import { DeskError } from '@/server/errors'
 import { verifyPassword } from '@/server/password'
 
-export type Workspace = 'review' | 'support'
+export type Workspace = 'support'
 type Session = { login: string; workspace: Workspace }
 const sessionSeconds = 12 * 60 * 60
 const digest = (value: string) => createHash('sha256').update(value).digest('hex')

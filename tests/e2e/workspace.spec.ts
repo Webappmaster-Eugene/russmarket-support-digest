@@ -39,7 +39,7 @@ test('неверные попытки входа ограничены', async ({
   }
 })
 
-test('в проверочном пространстве доступна исходная сводка', async ({ page }) => {
+test('проверяющему доступна исходная сводка и выход из кабинета', async ({ page }) => {
   await login(page, 'reviewer', reviewerPassword)
   await page.getByRole('link', { name: 'История', exact: true }).click()
   await page.getByRole('link', { name: /23\.11\.2026, 10:00/ }).click()
@@ -54,7 +54,7 @@ test('в проверочном пространстве доступна исх
   expect((await page.request.get('/api/digest')).status()).toBe(401)
 })
 
-test('создаёт три типа, редактирует, сохраняет переписку и историю', async ({ page, baseURL }) => {
+test('создаёт три типа и показывает обоим логинам общую переписку и историю', async ({ page, baseURL }) => {
   await login(page)
   const prefix = `QA-${Date.now().toString(36)}`
   let deliveryPath = ''
@@ -95,6 +95,7 @@ test('создаёт три типа, редактирует, сохраняет
   await page.getByRole('button', { name: 'Сохранить сводку' }).click()
   await expect(page.getByRole('heading', { name: 'Сохранённая сводка' })).toBeVisible()
   await expect(page.getByText(`${prefix}-DL`, { exact: true })).toBeVisible()
+  const snapshotURL = page.url()
 
   const cross = await page.request.patch(`${baseURL}/api${deliveryPath}`, {
     headers: { Origin: 'https://different.invalid' },
@@ -103,7 +104,17 @@ test('создаёт три типа, редактирует, сохраняет
   expect(cross.status()).toBe(403)
   await page.getByRole('button', { name: 'Выйти' }).click()
   await login(page, 'reviewer', reviewerPassword)
-  expect((await page.request.get('/api' + deliveryPath)).status()).toBe(404)
+  await page.goto(snapshotURL)
+  await expect(page.getByText(`${prefix}-DL`, { exact: true })).toBeVisible()
+  await page.goto(deliveryPath)
+  await expect(page.getByText('Сверили фактическую приёмку.', { exact: false })).toBeVisible()
+  await page.getByLabel('Текст сообщения').fill('Подтверждено проверяющим.')
+  await page.getByRole('button', { name: 'Добавить сообщение' }).click()
+  await expect(page.getByText('Подтверждено проверяющим.', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Выйти' }).click()
+  await login(page)
+  await page.goto(deliveryPath)
+  await expect(page.getByText('Подтверждено проверяющим.', { exact: true })).toBeVisible()
 })
 
 test('на 320 px кнопка сверху, форма помещается, ошибка не стирает поля', async ({ page }) => {
