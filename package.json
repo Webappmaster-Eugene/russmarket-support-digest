@@ -18,9 +18,12 @@
     "smoke": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "db:build": "esbuild src/server/bootstrap.ts --bundle --platform=node --target=node22 --format=cjs --external:pg --outfile=.build/bootstrap.cjs",
     "db:setup": "pnpm db:build && node .build/bootstrap.cjs",
-    "test:integration": "vitest run tests/integration"
+    "test:integration": "vitest run tests/integration",
+    "mcp:build": "esbuild src/mcp/stdio.ts --bundle --platform=node --target=node22 --format=esm --packages=external --outfile=.build/support-mcp.mjs",
+    "mcp:demo": "pnpm mcp:build && esbuild scripts/mcp-demo.ts --bundle --platform=node --target=node22 --format=esm --packages=external --outfile=.build/support-mcp-demo.mjs && node .build/support-mcp-demo.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
     "next": "16.4.6",
     "pg": "8.23.1",
     "react": "19.3.1",
@@ -29,6 +32,7 @@
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
+    "@modelcontextprotocol/client": "2.4.0",
     "@next/eslint-plugin-next": "16.4.6",
     "@playwright/test": "1.63.0",
     "@types/node": "22.20.2",

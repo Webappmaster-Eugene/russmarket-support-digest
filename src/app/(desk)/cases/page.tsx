@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { DigestRows, Heading, Pagination } from '@/components/desk'
-import { caseLabels, priorityLabels } from '@/components/labels'
+import { caseLabels, priorityLabels } from '@/digest/labels'
 import { caseKinds, priorities } from '@/digest/contract'
 import { compileDigest } from '@/digest/compile'
 import { pageSession } from '@/server/auth'

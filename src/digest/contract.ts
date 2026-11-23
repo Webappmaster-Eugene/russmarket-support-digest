@@ -49,26 +49,29 @@ export const messageInput = z.strictObject({
 export const versionInput = z.number().int().positive()
 export const resolutionInput = z.string().trim().min(1, 'Опишите, что удалось выяснить.').max(500, 'До 500 символов.')
 
+const chatRecord = messageInput.extend({ key: z.string().optional(), resolution: z.string().optional() })
+const digestItem = z.strictObject({
+  id: z.string(),
+  key: z.string().optional(),
+  kind: z.enum(caseKinds),
+  priority: z.enum(priorities),
+  reason: z.string(),
+  crm: z.array(z.string()),
+  chat: z.array(chatRecord),
+  chatNote: z.string().optional(),
+  hasConflict: z.boolean().optional(),
+  verify: z.string(),
+  action: z.string(),
+})
+
+export const digestSchema = z.strictObject({ asOf: timestamp, items: z.array(digestItem) })
+
 export type CaseInput = z.infer<typeof caseInput>
 export type CaseKind = CaseInput['kind']
-export type ChatMessage = z.infer<typeof messageInput> & { key?: string; resolution?: string }
+export type ChatMessage = z.infer<typeof chatRecord>
 export type SupportCase = CaseInput & { chat: ChatMessage[]; key?: string }
 export type Priority = typeof priorities[number]
-
-export type DigestItem = {
-  id: string
-  key?: string
-  kind: CaseKind
-  priority: Priority
-  reason: string
-  crm: string[]
-  chat: ChatMessage[]
-  chatNote?: string
-  hasConflict?: boolean
-  verify: string
-  action: string
-}
-
+export type DigestItem = z.infer<typeof digestItem>
 export type DigestRequest = { asOf: string; cases: SupportCase[] }
-export type Digest = { asOf: string; items: DigestItem[] }
+export type Digest = z.infer<typeof digestSchema>
 export type FieldIssue = { path: string; message: string }

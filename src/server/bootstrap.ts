@@ -2,6 +2,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { compileDigest } from '@/digest/compile'
 import { example } from '@/digest/example'
+import { normalizeReference } from '@/digest/validation'
 import { database, transaction } from '@/server/db'
 import { hashPassword, validPasswordHash } from '@/server/password'
 import type { SupportCase } from '@/digest/contract'
@@ -45,7 +46,7 @@ async function setup() {
       const result = await db.query<{ id: string }>(`
         INSERT INTO cases(workspace_id, reference, normalized_reference, kind, crm)
         VALUES ('review', $1, $2, $3, $4) RETURNING id
-      `, [item.id, item.id.normalize('NFKC').toLocaleLowerCase('ru-RU'), item.kind, item.crm])
+      `, [item.id, normalizeReference(item.id), item.kind, item.crm])
       const key = result.rows[0]?.id
       if (!key) throw new Error('Could not create example case')
       for (const message of item.chat) {

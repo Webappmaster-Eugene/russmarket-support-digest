@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg'
 import { caseInput, type CaseInput, type ChatMessage, type Digest, type SupportCase } from '@/digest/contract'
 import { compileDigest, isOpenConflict } from '@/digest/compile'
+import { normalizeReference, validateCaseAt } from '@/digest/validation'
 import { database, transaction } from '@/server/db'
 import { DeskError } from '@/server/errors'
 import type { Workspace } from '@/server/auth'
@@ -82,21 +83,9 @@ export function listCases(workspace: Workspace, archived = false) {
   return transaction((db) => readCases(db, workspace, archived), true)
 }
 
-const normalized = (reference: string) => reference.normalize('NFKC').toLocaleLowerCase('ru-RU')
-
 export function checkCase(input: CaseInput, now: string) {
-  if (input.kind !== 'delivery') return
-  const { status, acceptedAt, dueAt } = input.crm
-  if (status === 'accepted') {
-    if (!acceptedAt || Date.parse(acceptedAt) > Date.parse(now)) throw new DeskError(422, 'Проверьте время приёмки.', [
-      { path: 'crm.acceptedAt', message: 'Укажите время приёмки не позже текущего момента.' },
-    ])
-  } else if (!dueAt || acceptedAt) {
-    const path = !dueAt ? 'crm.dueAt' : 'crm.acceptedAt'
-    throw new DeskError(422, 'Проверьте поля доставки.', [
-      { path, message: !dueAt ? 'Укажите срок доставки.' : 'Время приёмки доступно для статуса «Принято».' },
-    ])
-  }
+  const violation = validateCaseAt(input, now)
+  if (violation) throw new DeskError(422, violation.title, [violation.field])
 }
 
 export async function createCase(workspace: Workspace, value: CaseInput) {
@@ -104,7 +93,7 @@ export async function createCase(workspace: Workspace, value: CaseInput) {
   const { rows: [row] } = await database().query<{ id: string }>(`
     INSERT INTO cases(workspace_id, reference, normalized_reference, kind, crm)
     VALUES ($1, $2, $3, $4, $5) RETURNING id
-  `, [workspace, value.id, normalized(value.id), value.kind, value.crm])
+  `, [workspace, value.id, normalizeReference(value.id), value.kind, value.crm])
   if (!row) throw new Error('Case was not created')
   return row.id
 }
@@ -127,7 +116,7 @@ export function changeCase(workspace: Workspace, key: string, operation: Operati
       await db.query(`
         UPDATE cases SET reference = $3, normalized_reference = $4, crm = $5
         WHERE workspace_id = $1 AND id = $2
-      `, [workspace, key, operation.value.id, normalized(operation.value.id), operation.value.crm])
+      `, [workspace, key, operation.value.id, normalizeReference(operation.value.id), operation.value.crm])
     } else if (operation.action === 'message') {
       const { role, text, at, conflict } = operation.value
       if (Date.parse(at) > Date.parse(now)) throw new DeskError(422, 'Проверьте время сообщения.', [

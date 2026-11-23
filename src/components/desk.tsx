@@ -1,8 +1,8 @@
 import Link from 'next/link'
-import { caseLabels, priorityLabels, roleLabels } from '@/components/labels'
+import { caseLabels, priorityLabels, roleLabels } from '@/digest/labels'
 import { CopyButton } from '@/components/forms'
 import { priorities, type Digest, type DigestItem, type Priority } from '@/digest/contract'
-import { formatTimestamp } from '@/digest/time'
+import { formatDigestText } from '@/digest/format'
 
 export function Status({ priority }: { priority: Priority }) {
   return <span className={`status tone-${priority}`}><span aria-hidden="true" />{priorityLabels[priority]}</span>
@@ -23,19 +23,8 @@ export function CaseDecision({ item }: { item: DigestItem }) {
   </div>
 }
 
-function copyText(digest: Digest) {
-  return [`Сводка поддержки, ${formatTimestamp(digest.asOf)}`, ...digest.items.map((item) => [
-    `${item.id} · ${caseLabels[item.kind]} · ${priorityLabels[item.priority]}`,
-    item.reason,
-    `CRM: ${item.crm.join(' ')}`,
-    ...item.chat.map(({ role, text, at }) => `Чат, ${roleLabels[role]}, ${formatTimestamp(at)}: «${text}»`),
-    ...(item.chatNote ? [item.chatNote] : []),
-    `Проверить: ${item.verify}`, `Дальше: ${item.action}`,
-  ].join('\n'))].join('\n\n')
-}
-
 export function DigestCopy({ digest }: { digest: Digest }) {
-  return <CopyButton text={copyText(digest)} />
+  return <CopyButton text={formatDigestText(digest)} />
 }
 
 export function DigestRows({ items, link }: { items: DigestItem[]; link?: boolean }) {

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { CaseDecision, Heading } from '@/components/desk'
 import { ArchiveForm, MessageForm, ResolveForm } from '@/components/forms'
-import { caseLabels, roleLabels } from '@/components/labels'
+import { caseLabels, roleLabels } from '@/digest/labels'
 import { compileDigest, isOpenConflict } from '@/digest/compile'
 import { formatTimestamp, toMoscowInput } from '@/digest/time'
 import { pageSession } from '@/server/auth'

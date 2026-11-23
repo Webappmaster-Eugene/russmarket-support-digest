@@ -3,7 +3,7 @@
 import { useActionState, useState, type ReactNode } from 'react'
 import { caseAction, loginAction, snapshotAction, type FormState } from '@/server/actions'
 import { InputField } from '@/components/input-field'
-import { caseLabels, roleLabels } from '@/components/labels'
+import { caseLabels, roleLabels } from '@/digest/labels'
 import { caseKinds, chatRoles } from '@/digest/contract'
 
 const blank: FormState = {}
